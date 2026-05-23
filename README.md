@@ -1,4 +1,4 @@
-# 📰 Vietnamese Extractive News Summarization — Bonus Deployment
+# 📰 Vietnamese Extractive News Summarization
 
 An interactive Streamlit application that demonstrates Vietnamese news summarization
 using **Position-Aware LexRank + MMR**, the best-performing model from our NLP project.
@@ -35,7 +35,6 @@ No server or Docker needed.
 ## 📁 Project Structure
 
 ```
-bonus_submission/
 ├── app.py                   # Streamlit application (main entry point)
 ├── requirements.txt         # Python dependencies
 ├── test_samples/
@@ -43,7 +42,7 @@ bonus_submission/
 │   ├── sample_tech.txt      # Công nghệ — Technology article
 │   ├── sample_sports.txt    # Thể thao — Sports article
 │   └── sample_politics.txt  # Chính trị — Politics article
-├── bonus_notebook.ipynb     # Notebook demonstrating the app pipeline
+├── notebook.ipynb     # Notebook demonstrating the app pipeline
 └── README.md                # This file
 ```
 
