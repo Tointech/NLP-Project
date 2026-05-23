@@ -1,0 +1,16 @@
+Tiêu đề: Việt Nam đẩy mạnh phát triển trí tuệ nhân tạo và chuyển đổi số
+
+Chính phủ Việt Nam vừa phê duyệt Chiến lược quốc gia về trí tuệ nhân tạo đến năm 2030, với tổng ngân sách đầu tư lên tới 2 tỷ USD. Chiến lược tập trung vào bốn lĩnh vực ưu tiên gồm y tế thông minh, nông nghiệp chính xác, thành phố thông minh và giáo dục số. Đây được xem là bước đi chiến lược để Việt Nam không bị tụt hậu trong cuộc cách mạng công nghiệp 4.0.
+
+Bộ Thông tin và Truyền thông cho biết có hơn 500 doanh nghiệp công nghệ trong nước đang nghiên cứu và ứng dụng AI. Các công ty như VinAI, VinBigData và FPT AI đang dẫn đầu trong việc phát triển các giải pháp AI tiếng Việt. VinAI gần đây đã ra mắt mô hình ngôn ngữ lớn (LLM) hỗ trợ tiếng Việt với hiệu suất vượt trội so với các mô hình quốc tế trên các tập dữ liệu tiếng Việt.
+
+Hạ tầng số cũng được đầu tư mạnh mẽ với tốc độ phủ sóng 5G đạt 70% dân số vào cuối năm 2024. Việt Nam hiện có hơn 80 triệu người dùng internet, chiếm 82% dân số. Tốc độ internet di động của Việt Nam xếp thứ 38 thế giới theo báo cáo của Ookla. Chính phủ đặt mục tiêu phủ sóng 5G toàn quốc vào năm 2026.
+
+Lĩnh vực thương mại điện tử bùng nổ với doanh thu đạt 25 tỷ USD trong năm 2024, tăng 35% so với năm trước. Shopee, Lazada và TikTok Shop cạnh tranh quyết liệt trên thị trường, trong khi các sàn thương mại điện tử nội địa như Tiki và Sendo nỗ lực giữ thị phần. Thanh toán không dùng tiền mặt đạt 60% tổng giao dịch bán lẻ, tăng đáng kể so với 40% của năm 2022.
+
+Giáo dục công nghệ thông tin cũng được chú trọng, với 50 trường đại học mở thêm chương trình đào tạo về AI và khoa học dữ liệu. Số lượng sinh viên ngành CNTT tăng 40% trong vòng hai năm qua. Các chương trình học bổng do nhà nước và doanh nghiệp tư nhân tài trợ giúp đào tạo hàng nghìn kỹ sư AI mỗi năm. Mục tiêu là có 100.000 chuyên gia AI vào năm 2030.
+
+An ninh mạng là thách thức lớn khi các vụ tấn công mạng tăng 150% so với năm trước. Chính phủ đã ban hành Nghị định về an toàn thông tin mạng, yêu cầu các doanh nghiệp lưu trữ dữ liệu người dùng Việt Nam tại máy chủ trong nước. Trung tâm Ứng cứu sự cố an toàn thông tin mạng quốc gia (VNCERT) đã xử lý hơn 10.000 vụ tấn công mạng trong quý I năm 2025.
+
+--- Expected summary (reference):
+Việt Nam phê duyệt chiến lược AI quốc gia với ngân sách 2 tỷ USD, tập trung vào y tế, nông nghiệp, thành phố thông minh và giáo dục số. Hơn 500 doanh nghiệp đang nghiên cứu AI, dẫn đầu là VinAI và FPT AI. Tốc độ phủ sóng 5G đạt 70% dân số. Thương mại điện tử đạt 25 tỷ USD, tăng 35%. Mục tiêu đào tạo 100.000 chuyên gia AI vào năm 2030.
