@@ -5,6 +5,7 @@ An interactive Streamlit application for Vietnamese news summarization supportin
 **Position-Aware LexRank + MMR** — developed as part of COMP5040 NLP, VinUniversity Spring 2026.
 
 🌐 **Live demo:** https://nlp-final-project.streamlit.app
+
 📁 **Full project repo:** https://github.com/cnvcuong/VinUni_Spring26_NLP_COMP5040_FinalProject_Group1
 
 ---
