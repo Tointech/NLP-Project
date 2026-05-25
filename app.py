@@ -182,6 +182,103 @@ def compute_redundancy(sentences: list[str], indices: list[int]) -> float:
 
 
 # ─────────────────────────────────────────────────────────
+# BERT Centroid & PACSUM backend
+# Lazy-loads sentence-transformers; degrades gracefully if absent.
+# ─────────────────────────────────────────────────────────
+
+BERT_AVAILABLE: bool = False
+try:
+    import torch
+    from sentence_transformers import SentenceTransformer
+    BERT_AVAILABLE = True
+except ImportError:
+    pass
+
+
+@st.cache_resource(show_spinner="Loading multilingual BERT model…")
+def _load_bert_model() -> "SentenceTransformer":
+    """Load once per Streamlit session and cache in memory."""
+    device = "cuda" if (BERT_AVAILABLE and torch.cuda.is_available()) else "cpu"
+    return SentenceTransformer(
+        "paraphrase-multilingual-MiniLM-L12-v2",
+        device=device,
+    )
+
+
+def _bert_embeddings(sentences: list[str]) -> "np.ndarray":
+    """Return (N, D) L2-normalised float32 embeddings."""
+    model = _load_bert_model()
+    return model.encode(
+        sentences,
+        convert_to_numpy=True,
+        normalize_embeddings=True,
+        show_progress_bar=False,
+        batch_size=64,
+    )
+
+
+def _bert_sim_matrix(embeddings: "np.ndarray") -> np.ndarray:
+    """N×N cosine similarity matrix with zero diagonal."""
+    sim = (embeddings @ embeddings.T).astype(float)
+    np.fill_diagonal(sim, 0.0)
+    sim = np.clip(sim, 0.0, 1.0)
+    return sim
+
+
+def bert_centroid(sentences: list[str], k: int) -> list[int]:
+    """
+    Score each sentence by cosine similarity to the cluster centroid
+    (mean of all L2-normalised embeddings). No graph, no PageRank.
+    """
+    emb = _bert_embeddings(sentences)
+    centroid = emb.mean(axis=0)
+    norm = float(np.linalg.norm(centroid))
+    if norm > 0:
+        centroid /= norm
+    scores = emb @ centroid          # cosine sim (embeddings already normalised)
+    top_k = int(np.argsort(scores)[-k:].tolist().__len__() and k)
+    indices = sorted(np.argsort(scores)[-top_k:].tolist())
+    return indices
+
+
+def pacsum(
+    sentences: list[str],
+    k: int,
+    beta: float = 0.0,
+) -> list[int]:
+    """
+    PACSUM directed-graph centrality (Zheng & Lapata, ACL 2019).
+
+    Score(i) = Σ_{j<i} sim(j,i)            # forward edges (full weight)
+             + β · Σ_{j>i} sim(j,i)         # backward edges (penalised)
+
+    β=0 → pure position-biased; β=1 → symmetric degree centrality.
+    """
+    emb = _bert_embeddings(sentences)
+    sim = _bert_sim_matrix(emb)
+    n = len(sentences)
+    scores = np.zeros(n)
+    for i in range(n):
+        for j in range(n):
+            if j == i:
+                continue
+            scores[i] += sim[i, j] if j < i else beta * sim[i, j]
+    indices = sorted(np.argsort(scores)[-k:].tolist())
+    return indices
+
+
+def compute_redundancy_bert(sentences: list[str], indices: list[int]) -> float:
+    """Average pairwise BERT cosine sim among selected sentences."""
+    if len(indices) < 2:
+        return 0.0
+    emb = _bert_embeddings([sentences[i] for i in indices])
+    sim = emb @ emb.T
+    n = len(indices)
+    pairs = [(i, j) for i in range(n) for j in range(i + 1, n)]
+    return float(np.mean([sim[i, j] for i, j in pairs])) if pairs else 0.0
+
+
+# ─────────────────────────────────────────────────────────
 # Streamlit UI
 # ─────────────────────────────────────────────────────────
 
@@ -276,31 +373,73 @@ st.markdown("""
 with st.sidebar:
     st.header("⚙️ Model Parameters")
 
+    # Show BERT availability status
+    if BERT_AVAILABLE:
+        st.success("🤖 BERT available", icon="✅")
+    else:
+        st.warning(
+            "BERT methods unavailable.\n\n"
+            "Install with:\n```\npip install sentence-transformers torch\n```",
+            icon="⚠️",
+        )
+
+    ALL_METHODS = [
+        "lead_k",
+        "vanilla_lexrank",
+        "position_lexrank",
+        "position_lexrank_mmr",
+        "bert_centroid",
+        "pacsum",
+    ]
+    METHOD_LABELS_ALL = {
+        "lead_k":               "Lead-k (Baseline)",
+        "vanilla_lexrank":      "Vanilla LexRank",
+        "position_lexrank":     "Position-Aware LexRank",
+        "position_lexrank_mmr": "Position-Aware LexRank + MMR ★",
+        "bert_centroid":        "BERT Centroid 🤖",
+        "pacsum":               "PACSUM 🤖",
+    }
+    available_methods = (
+        ALL_METHODS if BERT_AVAILABLE
+        else [m for m in ALL_METHODS if m not in ("bert_centroid", "pacsum")]
+    )
+
     method = st.selectbox(
         "Method",
-        options=["lead_k", "vanilla_lexrank", "position_lexrank", "position_lexrank_mmr"],
-        format_func=lambda m: {
-            "lead_k": "Lead-k (Baseline)",
-            "vanilla_lexrank": "Vanilla LexRank",
-            "position_lexrank": "Position-Aware LexRank",
-            "position_lexrank_mmr": "Position-Aware LexRank + MMR ★",
-        }[m],
-        index=3,
+        options=available_methods,
+        format_func=lambda m: METHOD_LABELS_ALL[m],
+        index=min(3, len(available_methods) - 1),
     )
+
+    is_bert_method = method in ("bert_centroid", "pacsum")
 
     k = st.slider("Number of sentences (k)", min_value=1, max_value=10, value=5)
-    threshold = st.slider("Cosine threshold", 0.01, 0.30, 0.10, 0.01)
-    position_weight = st.slider("Position weight", 0.1, 1.0, 0.80, 0.05)
-    lambda_mmr = st.slider(
-        "MMR Lambda (λ)", 0.1, 1.0, 0.70, 0.05,
-        help="Higher → favour relevance. Lower → favour diversity."
-    )
+
+    # TF-IDF params (hidden for BERT methods)
+    if not is_bert_method:
+        threshold = st.slider("Cosine threshold", 0.01, 0.30, 0.10, 0.01)
+        position_weight = st.slider("Position weight", 0.1, 1.0, 0.80, 0.05)
+        lambda_mmr = st.slider(
+            "MMR Lambda (λ)", 0.1, 1.0, 0.70, 0.05,
+            help="Higher → favour relevance. Lower → favour diversity.",
+        )
+    else:
+        threshold = 0.10
+        position_weight = 0.80
+        lambda_mmr = 0.70
+
+    # PACSUM beta (only shown for PACSUM)
+    if method == "pacsum":
+        pacsum_beta = st.slider(
+            "PACSUM β (beta)", 0.0, 1.0, 0.0, 0.05,
+            help="β=0: forward edges only (max position bias). β=1: symmetric.",
+        )
+    else:
+        pacsum_beta = 0.0
 
     st.divider()
-    st.markdown("**Recommended:** Position-Aware LexRank + MMR with λ=0.7, threshold=0.1, position_weight=0.8")
-
-    st.divider()
-    st.markdown("**Recommended:** Position-Aware LexRank + MMR with λ=0.7, threshold=0.1, position_weight=0.8")
+    st.markdown("**Recommended TF-IDF:** PA-LexRank + MMR · λ=0.7, threshold=0.1, position_weight=0.8")
+    st.markdown("**Recommended BERT:** PACSUM with β=0.0")
 
 # ── Sample article library ─────────────────────────────────
 SAMPLES = {
@@ -563,10 +702,22 @@ with col_out:
                 selected = vanilla_lexrank(sentences, k_actual, threshold)
             elif method == "position_lexrank":
                 selected = position_lexrank(sentences, k_actual, title_input, threshold, position_weight)
-            else:
+            elif method == "position_lexrank_mmr":
                 selected = position_lexrank_mmr(sentences, k_actual, title_input, threshold, position_weight, lambda_mmr)
+            elif method == "bert_centroid":
+                with st.spinner("Encoding sentences with BERT…"):
+                    selected = bert_centroid(sentences, k_actual)
+            elif method == "pacsum":
+                with st.spinner("Encoding sentences with BERT…"):
+                    selected = pacsum(sentences, k_actual, beta=pacsum_beta)
+            else:
+                selected = lead_k(sentences, k_actual)
 
-            redundancy  = compute_redundancy(sentences, selected)
+            # Use BERT-based redundancy for BERT methods
+            if method in ("bert_centroid", "pacsum") and BERT_AVAILABLE:
+                redundancy = compute_redundancy_bert(sentences, selected)
+            else:
+                redundancy  = compute_redundancy(sentences, selected)
             compression = 1 - len(selected) / n_sent
 
             # Metrics
@@ -579,10 +730,12 @@ with col_out:
 
             summary_text = " ".join(sentences[i] for i in selected)
             method_labels = {
-                "lead_k": "Lead-k",
-                "vanilla_lexrank": "Vanilla LexRank",
-                "position_lexrank": "Position-Aware LexRank",
+                "lead_k":               "Lead-k",
+                "vanilla_lexrank":      "Vanilla LexRank",
+                "position_lexrank":     "Position-Aware LexRank",
                 "position_lexrank_mmr": "Position-Aware LexRank + MMR",
+                "bert_centroid":        "BERT Centroid",
+                "pacsum":               "PACSUM",
             }
             st.markdown(f'<span class="method-badge">{method_labels[method]}</span>', unsafe_allow_html=True)
             st.markdown(f'<div class="summary-box">{summary_text}</div>', unsafe_allow_html=True)
@@ -612,32 +765,66 @@ with col_out:
 st.divider()
 st.subheader("📊 Compare All Methods Side by Side")
 
-if st.button("🔄 Run all 4 methods"):
+n_compare_methods = 6 if BERT_AVAILABLE else 4
+if st.button(f"🔄 Run all {n_compare_methods} methods"):
     sentences = sentence_split(article_input)
     if len(sentences) < 2:
         st.warning("⚠️ Text is too short.")
     else:
         k_actual = min(k, len(sentences))
-        methods_map = {
-            "Lead-k (Baseline)": lead_k(sentences, k_actual),
-            "Vanilla LexRank": vanilla_lexrank(sentences, k_actual, threshold),
-            "Position-Aware LexRank": position_lexrank(sentences, k_actual, title_input, threshold, position_weight),
+
+        # TF-IDF methods (always available)
+        methods_map: dict[str, list[int]] = {
+            "Lead-k (Baseline)":          lead_k(sentences, k_actual),
+            "Vanilla LexRank":            vanilla_lexrank(sentences, k_actual, threshold),
+            "Position-Aware LexRank":     position_lexrank(sentences, k_actual, title_input, threshold, position_weight),
             "Position-Aware LexRank + MMR ★": position_lexrank_mmr(sentences, k_actual, title_input, threshold, position_weight, lambda_mmr),
         }
+
+        # BERT methods (only if available) — encode once, reuse
+        if BERT_AVAILABLE:
+            with st.spinner("Encoding sentences with BERT (shared for both methods)…"):
+                emb = _bert_embeddings(sentences)
+                # BERT Centroid
+                centroid = emb.mean(axis=0)
+                norm = float(np.linalg.norm(centroid))
+                if norm > 0:
+                    centroid /= norm
+                bc_scores = emb @ centroid
+                methods_map["BERT Centroid 🤖"] = sorted(
+                    np.argsort(bc_scores)[-k_actual:].tolist()
+                )
+                # PACSUM
+                sim_mat = _bert_sim_matrix(emb)
+                n = len(sentences)
+                ps_scores = np.zeros(n)
+                for i in range(n):
+                    for j in range(n):
+                        if j != i:
+                            ps_scores[i] += sim_mat[i, j] if j < i else pacsum_beta * sim_mat[i, j]
+                methods_map["PACSUM 🤖"] = sorted(
+                    np.argsort(ps_scores)[-k_actual:].tolist()
+                )
+
         cols = st.columns(2)
         for i, (name, sel) in enumerate(methods_map.items()):
-            red  = compute_redundancy(sentences, sel)
+            is_bert = "🤖" in name
+            red = (
+                compute_redundancy_bert(sentences, sel)
+                if is_bert and BERT_AVAILABLE
+                else compute_redundancy(sentences, sel)
+            )
             text = " ".join(sentences[j] for j in sel)
             with cols[i % 2]:
                 st.markdown(f"**{name}**")
-                st.markdown(f"*Redundancy: {red:.4f} · Selected sentences: {sel}*")
+                st.markdown(f"*Redundancy: {red:.4f} · Selected: {sel}*")
                 st.info(text)
 
 # ── Footer ──────────────────────────────────────────────────
 st.markdown("---")
 st.markdown(
     "<center style='color:#9ca3af;font-size:0.8rem;'>"
-    "Vietnamese Extractive News Summarization · Position-Aware LexRank + MMR"
+    "Vietnamese Extractive News Summarization · PA-LexRank + MMR · BERT Centroid · PACSUM"
     "</center>",
     unsafe_allow_html=True,
 )
