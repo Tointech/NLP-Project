@@ -140,4 +140,3 @@ Averaged over 300 Vietnamese news clusters (ViMs dataset, 1,945 articles):
 7. **Combined prior**: `p(i) = α · q_pos(i) + (1−α) · q_title(i)`
 8. **MMR selection**: `MMR(c) = λ · Rel(c) − (1−λ) · max_sim(c, s), s ∈ S`
 9. **Output**: Top-k sentences displayed in original document order with relevance scores
-```
