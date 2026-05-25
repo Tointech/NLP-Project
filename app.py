@@ -375,12 +375,11 @@ with st.sidebar:
 
     # Show BERT availability status
     if BERT_AVAILABLE:
-        st.success("🤖 BERT available", icon="✅")
+        st.caption("🤖 BERT model available")
     else:
-        st.warning(
-            "BERT methods unavailable.\n\n"
-            "Install with:\n```\npip install sentence-transformers torch\n```",
-            icon="⚠️",
+        st.caption(
+            "⚠️ BERT methods unavailable. "
+            "Install with: `pip install sentence-transformers torch`"
         )
 
     ALL_METHODS = [
@@ -643,7 +642,7 @@ def render_resource_selector() -> tuple[str, str]:
         src   = st.session_state.get("sel_source", "unknown")
         title = st.session_state.get("sel_title", "")
         words = len(st.session_state["sel_body"].split())
-        st.success(f"✅ Loaded: **{src}** · {words} words" + (f" · *{title[:60]}*" if title else ""))
+        st.caption(f"✅ Loaded: **{src}** · {words} words" + (f" · *{title[:60]}*" if title else ""))
         chosen_title = title
         chosen_body  = st.session_state["sel_body"]
 
